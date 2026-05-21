@@ -1,5 +1,6 @@
-// ====================== PARTICLE SYSTEM ======================
+// ====================== PARTICLE SYSTEM (Phaser Compatible) ======================
 // Handles visual effects: boost trails, death explosions, eating sparkles
+// Updated to use Phaser Graphics API for WebGL performance
 
 class ParticleSystem {
     constructor() {
@@ -72,37 +73,26 @@ class ParticleSystem {
         }
     }
 
-    draw(ctx, cameraX, cameraY) {
+    // Draw using Phaser Graphics object
+    draw(graphics, cameraX, cameraY) {
+        if (!graphics) return;
+
         for (let p of this.particles) {
             const alpha = p.alpha * 0.9;
-
-            ctx.save();
-            ctx.globalAlpha = alpha;
+            const x = p.x - cameraX;
+            const y = p.y - cameraY;
 
             if (p.type === "glow") {
-                ctx.shadowBlur = 25;
-                ctx.shadowColor = p.color;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x - cameraX, p.y - cameraY, p.size * p.alpha, 0, Math.PI * 2);
-                ctx.fill();
-            } 
-            else {
-                ctx.shadowBlur = 12;
-                ctx.shadowColor = p.color;
-                ctx.fillStyle = "#ffffff";
+                graphics.fillStyle(Phaser.Display.Color.HexStringToColor(p.color).color, alpha);
+                graphics.fillCircle(x, y, p.size * p.alpha);
+            } else {
+                // Boost particle: White outer, colored inner
+                graphics.fillStyle(0xffffff, alpha);
+                graphics.fillCircle(x, y, p.size * (p.life / p.maxLife));
                 
-                ctx.beginPath();
-                ctx.arc(p.x - cameraX, p.y - cameraY, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.shadowBlur = 4;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x - cameraX, p.y - cameraY, p.size * 0.45, 0, Math.PI * 2);
-                ctx.fill();
+                graphics.fillStyle(Phaser.Display.Color.HexStringToColor(p.color).color, alpha);
+                graphics.fillCircle(x, y, p.size * 0.45);
             }
-            ctx.restore();
         }
     }
 }

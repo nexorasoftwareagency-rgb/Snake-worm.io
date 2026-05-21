@@ -1,4 +1,4 @@
-// ====================== PHASER GAME SCENE ======================
+// ====================== PHASER GAME SCENE (Visuals Upgraded) ======================
 
 class MainScene extends Phaser.Scene {
     constructor() {
@@ -17,7 +17,11 @@ class MainScene extends Phaser.Scene {
         // 3. Minimap Setup
         this.setupMinimap();
 
-        // 4. Input
+        // 4. Graphics Objects for Rendering (Performance)
+        this.foodGraphics = this.add.graphics().setDepth(1);
+        this.particleGraphics = this.add.graphics().setDepth(20);
+
+        // 5. Input
         this.input.on('pointermove', (pointer) => {
             this.mouseWorldX = pointer.worldX;
             this.mouseWorldY = pointer.worldY;
@@ -30,7 +34,7 @@ class MainScene extends Phaser.Scene {
         boostBtn.addEventListener('mousedown', () => this.isBoosting = true);
         boostBtn.addEventListener('mouseup', () => this.isBoosting = false);
 
-        // 5. Game State
+        // 6. Game State
         this.player = null;
         this.otherPlayers = {};
         this.bots = {};
@@ -40,7 +44,7 @@ class MainScene extends Phaser.Scene {
         this.mouseWorldX = this.ARENA_SIZE / 2;
         this.mouseWorldY = this.ARENA_SIZE / 2;
 
-        // 6. Init Systems
+        // 7. Init Systems
         this.initGame();
     }
 
@@ -94,10 +98,6 @@ class MainScene extends Phaser.Scene {
         this.player = new PlayerWorm(playerId, this.ARENA_SIZE / 2, this.ARENA_SIZE / 2, playerSkin);
         this.player.setupDisconnect(this.roomId);
 
-        // Create Player Graphics Object
-        this.playerGraphics = this.add.graphics();
-        this.playerGraphics.setDepth(10);
-
         // Listen to Players
         firebase.database().ref(`rooms/${this.roomId}/players`).on('value', (snapshot) => {
             const data = snapshot.val() || {};
@@ -109,9 +109,6 @@ class MainScene extends Phaser.Scene {
                 if (data[id].isBot) {
                     if (!this.bots[id]) {
                         this.bots[id] = new SmartBot(id, data[id].x, data[id].y, this.roomId);
-                        // Create Bot Graphics
-                        this.bots[id].graphics = this.add.graphics();
-                        this.bots[id].graphics.setDepth(5);
                     }
                     // Update Bot State
                     this.bots[id].head.x = data[id].x;
@@ -147,7 +144,7 @@ class MainScene extends Phaser.Scene {
 
     drawGrid() {
         this.gridGraphics.clear();
-        this.gridGraphics.lineStyle(2, 0xffffff, 0.05);
+        this.gridGraphics.lineStyle(2, 0xffffff, 0.08);
         const gridSize = 50;
         for (let x = 0; x <= this.ARENA_SIZE; x += gridSize) {
             this.gridGraphics.moveTo(x, 0);
@@ -163,29 +160,18 @@ class MainScene extends Phaser.Scene {
     setupMinimap() {
         this.minimapSize = 150;
         this.minimapPadding = 20;
-        // Position: Bottom Right
         this.minimapX = this.scale.width - this.minimapSize - this.minimapPadding;
         this.minimapY = this.scale.height - this.minimapSize - this.minimapPadding;
         
         this.minimapGraphics = this.add.graphics().setDepth(100);
-        
-        // Background
-        this.minimapGraphics.fillStyle(0x0a001f, 0.8);
-        this.minimapGraphics.fillRect(this.minimapX, this.minimapY, this.minimapSize, this.minimapSize);
-        
-        // Border
-        this.minimapGraphics.lineStyle(2, 0xffffff, 0.5);
-        this.minimapGraphics.strokeRect(this.minimapX, this.minimapY, this.minimapSize, this.minimapSize);
     }
 
     drawMinimap() {
         if (!this.minimapGraphics) return;
 
-        // Clear dynamic content (keep background/border if needed, but easier to redraw all)
-        // Actually, let's just clear the inner area to save performance
         this.minimapGraphics.clear();
         
-        // Redraw Background & Border
+        // Background & Border
         this.minimapGraphics.fillStyle(0x0a001f, 0.8);
         this.minimapGraphics.fillRect(this.minimapX, this.minimapY, this.minimapSize, this.minimapSize);
         this.minimapGraphics.lineStyle(2, 0xffffff, 0.5);
@@ -193,47 +179,31 @@ class MainScene extends Phaser.Scene {
 
         const scale = this.minimapSize / this.ARENA_SIZE;
 
-        // Draw Food (Limit to 50 for performance)
+        // Draw Food (Limit to 50)
         const foodEntries = Object.values(this.currentFoods);
         const limit = 50;
         for (let i = 0; i < Math.min(foodEntries.length, limit); i++) {
             const f = foodEntries[i];
             this.minimapGraphics.fillStyle(0xffff00, 0.6);
-            this.minimapGraphics.fillRect(
-                this.minimapX + f.x * scale, 
-                this.minimapY + f.y * scale, 
-                2, 2
-            );
+            this.minimapGraphics.fillRect(this.minimapX + f.x * scale, this.minimapY + f.y * scale, 2, 2);
         }
 
         // Draw Other Players
         Object.values(this.otherPlayers).forEach(p => {
             this.minimapGraphics.fillStyle(Phaser.Display.Color.HexStringToColor(p.color || '#00ffff').color, 1);
-            this.minimapGraphics.fillCircle(
-                this.minimapX + p.x * scale, 
-                this.minimapY + p.y * scale, 
-                3
-            );
+            this.minimapGraphics.fillCircle(this.minimapX + p.x * scale, this.minimapY + p.y * scale, 3);
         });
 
         // Draw Bots
         Object.values(this.bots).forEach(b => {
             this.minimapGraphics.fillStyle(Phaser.Display.Color.HexStringToColor(b.color || '#ff00ff').color, 1);
-            this.minimapGraphics.fillCircle(
-                this.minimapX + b.head.x * scale, 
-                this.minimapY + b.head.y * scale, 
-                2
-            );
+            this.minimapGraphics.fillCircle(this.minimapX + b.head.x * scale, this.minimapY + b.head.y * scale, 2);
         });
 
         // Draw Player
         if (this.player && this.player.isAlive) {
             this.minimapGraphics.fillStyle(0xffffff, 1);
-            this.minimapGraphics.fillCircle(
-                this.minimapX + this.player.head.x * scale, 
-                this.minimapY + this.player.head.y * scale, 
-                4
-            );
+            this.minimapGraphics.fillCircle(this.minimapX + this.player.head.x * scale, this.minimapY + this.player.head.y * scale, 4);
             
             // Viewport Rectangle
             const cam = this.cameras.main;
@@ -269,7 +239,7 @@ class MainScene extends Phaser.Scene {
         const snapshot = await playersRef.once('value');
         const data = snapshot.val() || {};
         const currentCount = Object.keys(data).length;
-        const needed = 15 - currentCount; // Fill up to 15
+        const needed = 15 - currentCount;
 
         if (needed <= 0) return;
 
@@ -291,57 +261,122 @@ class MainScene extends Phaser.Scene {
     }
 
     render() {
-        // Render Player
-        if (this.player && this.player.isAlive) {
-            this.renderWorm(this.player, this.playerGraphics);
-            this.player.particles.draw(this, this.cameras.main.scrollX, this.cameras.main.scrollY);
-        }
+        // 1. Render Food (Glowing Orbs)
+        this.foodGraphics.clear();
+        const time = this.time.now;
+        Object.values(this.currentFoods).forEach(food => {
+            const colorHex = Phaser.Display.Color.HexStringToColor(food.color || '#ffff00').color;
+            
+            // Pulse effect
+            const pulse = 1 + Math.sin(time * 0.005 + food.x) * 0.2;
+            
+            // Glow
+            this.foodGraphics.fillStyle(colorHex, 0.3);
+            this.foodGraphics.fillCircle(food.x, food.y, 10 * pulse);
+            
+            // Core
+            this.foodGraphics.fillStyle(colorHex, 1);
+            this.foodGraphics.fillCircle(food.x, food.y, 6);
+            
+            // Shine
+            this.foodGraphics.fillStyle(0xffffff, 0.6);
+            this.foodGraphics.fillCircle(food.x - 2, food.y - 2, 2);
+        });
 
-        // Render Bots
+        // 2. Render Particles
+        this.particleGraphics.clear();
+        if (this.player && this.player.isAlive) {
+            this.player.particles.draw(this.particleGraphics, this.cameras.main.scrollX, this.cameras.main.scrollY);
+        }
         Object.values(this.bots).forEach(bot => {
-            if (bot.isAlive && bot.graphics) {
-                this.renderWorm(bot, bot.graphics);
-                bot.particles.draw(this, this.cameras.main.scrollX, this.cameras.main.scrollY);
+            if (bot.isAlive) {
+                bot.particles.draw(this.particleGraphics, this.cameras.main.scrollX, this.cameras.main.scrollY);
             }
         });
 
-        // Render Food
-        Object.values(this.currentFoods).forEach(food => {
-            this.add.circle(food.x, food.y, 6, Phaser.Display.Color.HexStringToColor(food.color || '#ffff00').color).setDepth(1);
+        // 3. Render Bots
+        Object.values(this.bots).forEach(bot => {
+            if (bot.isAlive) {
+                this.renderWorm(bot);
+            }
         });
-        
-        // Note: In a real game, you'd pool these circle objects for performance instead of creating new ones every frame.
-        // For now, this is a simple implementation.
+
+        // 4. Render Player
+        if (this.player && this.player.isAlive) {
+            this.renderWorm(this.player);
+        }
     }
 
-    renderWorm(worm, graphics) {
+    renderWorm(worm) {
         if (!worm.isAlive || worm.segments.length < 3) return;
 
-        graphics.clear();
+        // Use a temporary graphics object for each worm? No, too slow.
+        // We need to draw all worms on one graphics object? 
+        // Problem: `graphics` is persistent. We need to clear it every frame.
+        // But we can't clear `this.foodGraphics` because we need food.
+        // Solution: Create a `wormGraphics` object in `create` and clear/redraw all worms every frame.
+        // Let's add `this.wormGraphics` in `create`.
+        if (!this.wormGraphics) {
+            this.wormGraphics = this.add.graphics().setDepth(10);
+        }
+        this.wormGraphics.clear();
+
+        const color = Phaser.Display.Color.HexStringToColor(worm.color).color;
+        const highlightColor = Phaser.Display.Color.GetColor(255, 255, 255);
+
+        // 1. Outer Glow (Soft shadow)
+        this.wormGraphics.lineStyle(24, color, 0.2);
+        this.wormGraphics.lineCap = 'round';
+        this.wormGraphics.lineJoin = 'round';
+        this.wormGraphics.beginPath();
+        this.wormGraphics.moveTo(worm.segments[0].x, worm.segments[0].y);
+        for (let i = 1; i < worm.segments.length; i++) {
+            this.wormGraphics.lineTo(worm.segments[i].x, worm.segments[i].y);
+        }
+        this.wormGraphics.strokePath();
+
+        // 2. Main Body
+        this.wormGraphics.lineStyle(18, color, 1);
+        this.wormGraphics.beginPath();
+        this.wormGraphics.moveTo(worm.segments[0].x, worm.segments[0].y);
+        for (let i = 1; i < worm.segments.length; i++) {
+            this.wormGraphics.lineTo(worm.segments[i].x, worm.segments[i].y);
+        }
+        this.wormGraphics.strokePath();
+
+        // 3. Highlight (Top shine for 3D effect)
+        this.wormGraphics.lineStyle(8, highlightColor, 0.4);
+        this.wormGraphics.beginPath();
+        this.wormGraphics.moveTo(worm.segments[0].x, worm.segments[0].y);
+        for (let i = 1; i < worm.segments.length; i += 2) { 
+            this.wormGraphics.lineTo(worm.segments[i].x, worm.segments[i].y);
+        }
+        this.wormGraphics.strokePath();
+
+        // 4. Head
+        this.wormGraphics.fillStyle(color, 1);
+        this.wormGraphics.fillCircle(worm.head.x, worm.head.y, 15);
         
-        // Glow
-        graphics.lineStyle(20, Phaser.Display.Color.HexStringToColor(worm.color).color, 0.3);
-        graphics.beginPath();
-        graphics.moveTo(worm.segments[0].x, worm.segments[0].y);
-        for (let i = 1; i < worm.segments.length; i++) {
-            graphics.lineTo(worm.segments[i].x, worm.segments[i].y);
-        }
-        graphics.strokePath();
+        // 5. Eyes
+        const eyeOffset = 6;
+        const eyeSize = 4;
+        const pupilSize = 2;
+        
+        const angle = worm.head.angle;
+        const leftEyeX = worm.head.x + Math.cos(angle - 0.5) * eyeOffset;
+        const leftEyeY = worm.head.y + Math.sin(angle - 0.5) * eyeOffset;
+        const rightEyeX = worm.head.x + Math.cos(angle + 0.5) * eyeOffset;
+        const rightEyeY = worm.head.y + Math.sin(angle + 0.5) * eyeOffset;
 
-        // Body
-        graphics.lineStyle(16, Phaser.Display.Color.HexStringToColor(worm.color).color, 1);
-        graphics.lineCap = 'round';
-        graphics.lineJoin = 'round';
-        graphics.beginPath();
-        graphics.moveTo(worm.segments[0].x, worm.segments[0].y);
-        for (let i = 1; i < worm.segments.length; i++) {
-            graphics.lineTo(worm.segments[i].x, worm.segments[i].y);
-        }
-        graphics.strokePath();
+        // Whites
+        this.wormGraphics.fillStyle(0xffffff, 1);
+        this.wormGraphics.fillCircle(leftEyeX, leftEyeY, eyeSize);
+        this.wormGraphics.fillCircle(rightEyeX, rightEyeY, eyeSize);
 
-        // Head
-        graphics.fillStyle(Phaser.Display.Color.HexStringToColor(worm.color).color, 1);
-        graphics.fillCircle(worm.head.x, worm.head.y, 14);
+        // Pupils
+        this.wormGraphics.fillStyle(0x000000, 1);
+        this.wormGraphics.fillCircle(leftEyeX + Math.cos(angle)*1.5, leftEyeY + Math.sin(angle)*1.5, pupilSize);
+        this.wormGraphics.fillCircle(rightEyeX + Math.cos(angle)*1.5, rightEyeY + Math.sin(angle)*1.5, pupilSize);
     }
 }
 
@@ -350,7 +385,7 @@ const config = {
     type: Phaser.AUTO, // WebGL if available, else Canvas
     width: window.innerWidth,
     height: window.innerHeight,
-    backgroundColor: '#0a001f',
+    backgroundColor: '#110022', // Deeper purple for better neon contrast
     scene: MainScene,
     scale: {
         mode: Phaser.Scale.RESIZE,
