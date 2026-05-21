@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>WormSlither Arena - Main Menu</title>
+  <!-- Firebase Compat Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  
+  <style>
+    /* Worms Zone Inspired Styles */
+    body {
+      margin: 0; padding: 0;
+      background: linear-gradient(135deg, #1e90ff, #00bfff);
+      background-image: url('data:image/svg+xml;utf8,<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="2" fill="%23ffffff" opacity="0.1"/></svg>');
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .menu-container {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      padding: 40px;
+      border-radius: 30px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      width: 90%;
+      max-width: 450px;
+      text-align: center;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      font-size: 42px;
+      margin: 0 0 10px;
+      color: #ffd700;
+      text-shadow: 3px 3px 0px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #fff;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+
+    .btn-play {
+      background: linear-gradient(to bottom, #7cfc00, #32cd32);
+      color: white;
+      font-size: 28px;
+      font-weight: bold;
+      padding: 18px 50px;
+      border: none;
+      border-radius: 60px;
+      cursor: pointer;
+      box-shadow: 0 8px 0 #228b22, 0 12px 15px rgba(0,0,0,0.3);
+      transition: all 0.1s;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+
+    .btn-play:active {
+      transform: translateY(6px);
+      box-shadow: 0 2px 0 #228b22, 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    .menu-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn-option {
+      background: linear-gradient(to bottom, #ffffff, #e0e0e0);
+      color: #333;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 14px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 5px 0 #bbb, 0 8px 10px rgba(0,0,0,0.2);
+      transition: all 0.1s;
+    }
+
+    .btn-option:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #bbb, 0 4px 5px rgba(0,0,0,0.2);
+    }
+
+    .btn-option.secondary {
+      background: linear-gradient(to bottom, #87ceeb, #4682b4);
+      color: white;
+      box-shadow: 0 5px 0 #2f4f4f, 0 8px 10px rgba(0,0,0,0.2);
+    }
+    
+    .btn-option.secondary:active {
+      box-shadow: 0 2px 0 #2f4f4f, 0 4px 5px rgba(0,0,0,0.2);
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #fff, #f0f8ff);
+      padding: 30px;
+      border-radius: 25px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      border: 4px solid #ffd700;
+    }
+
+    .modal h2 {
+      color: #333;
+      margin-top: 0;
+      font-size: 24px;
+    }
+
+    .input-group {
+      margin: 15px 0;
+      text-align: left;
+    }
+
+    .input-group label {
+      display: block;
+      color: #555;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"], input[type="password"], input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      font-size: 16px;
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #1e90ff;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .modal-buttons button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 50px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    }
+
+    .btn-confirm {
+      background: #32cd32;
+      color: white;
+    }
+
+    .btn-cancel {
+      background: #ff6347;
+      color: white;
+    }
+
+    /* Room List Styles */
+    .room-list {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 15px;
+      text-align: left;
+    }
+
+    .room-item {
+      background: #fff;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .room-item button {
+      background: #1e90ff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* Loading Spinner */
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="menu-container">
+    <h1>WORMSLITHER</h1>
+    <div class="subtitle">Neon Arena Battle</div>
+
+    <!-- Skin Selection -->
+    <div style="margin-bottom: 20px;">
+      <label style="color:white; font-weight:bold; display:block; margin-bottom:10px;">Choose Your Skin</label>
+      <div id="skin-selector" style="display:flex; justify-content:center; gap:15px;">
+        <!-- Skins injected by JS -->
+      </div>
+    </div>
+
+    <button class="btn-play" onclick="quickPlay()">
+      ▶️ PLAY
+    </button>
+
+    <div class="menu-options">
+      <button class="btn-option" onclick="showCreateRoomModal()">
+        ➕ Create Private Room
+      </button>
+      <button class="btn-option secondary" onclick="showJoinCodeModal()">
+        🔑 Join by Code
+      </button>
+      <button class="btn-option secondary" onclick="showRoomListModal()">
+        🌐 Browse Rooms
+      </button>
+    </div>
+  </div>
+
+  <!-- Create Room Modal -->
+  <div id="create-room-modal" class="modal">
+    <div class="modal-content">
+      <h2>Create New Room</h2>
+      
+      <div class="input-group">
+        <label>Room Name</label>
+        <input type="text" id="room-name" placeholder="e.g. MySquad or 2424" />
+      </div>
+
+      <div class="input-group">
+        <label>Max Players: <span id="max-players-val">20</span></label>
+        <input type="range" id="max-players" min="4" max="30" value="20" style="width:100%" />
+      </div>
+
+      <div class="input-group">
+        <label>Password (Optional)</label>
+        <input type="password" id="room-password" placeholder="Leave empty for public" />
+      </div>
+
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeModal('create-room-modal')">Cancel</button>
+        <button class="btn-confirm" onclick="createRoom()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join by Code Modal -->
+  <div id="join-code-modal" class="modal">
+    <div class="modal-content">
+      <h2>Join Room</h2>
+      <div class="input-group">
+        <label>Room Code</label>
+        <input type="text" id="join-code" placeholder="Enter 5-digit code" style="text-align:center; font-size:24px; letter-spacing:5px;" />
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeModal('join-code-modal')">Cancel</button>
+        <button class="btn-confirm" onclick="joinByCode()">Join</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Browse Rooms Modal -->
+  <div id="browse-rooms-modal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <h2>Active Rooms</h2>
+      <div id="room-list-container" class="room-list">
+        <div class="loader"></div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeModal('browse-rooms-modal')" style="width:100%">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====================== FIREBASE CONFIG ======================
+    // REPLACE WITH YOUR ACTUAL FIREBASE CONFIG
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "SENDER_ID",
+      appId: "APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    let currentPlayerId = localStorage.getItem('wormPlayerId') || "player_" + Math.random().toString(36).substring(2, 11);
+    localStorage.setItem('wormPlayerId', currentPlayerId);
+
+    // ====================== SKIN SELECTION ======================
+    const SKINS = [
+      { name: "Cyan", color: "#00ffff" },
+      { name: "Pink", color: "#ff00ff" },
+      { name: "Gold", color: "#ffd700" },
+      { name: "Lime", color: "#00ff88" },
+      { name: "Orange", color: "#ff8800" },
+      { name: "Red", color: "#ff4444" }
+    ];
+
+    let selectedSkinColor = localStorage.getItem('wormSkin') || SKINS[0].color;
+
+    function renderSkins() {
+      const container = document.getElementById('skin-selector');
+      container.innerHTML = '';
+      
+      SKINS.forEach(skin => {
+        const btn = document.createElement('div');
+        btn.className = 'skin-btn';
+        btn.style.cssText = `
+          width: 45px; height: 45px; border-radius: 50%;
+          background: ${skin.color};
+          border: 3px solid ${skin.color === selectedSkinColor ? '#fff' : 'transparent'};
+          box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+          cursor: pointer;
+          transition: transform 0.2s, border 0.2s;
+        `;
+        btn.onclick = () => {
+          selectedSkinColor = skin.color;
+          localStorage.setItem('wormSkin', selectedSkinColor);
+          renderSkins(); // Re-render to update selection border
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    renderSkins();
+
+    // ====================== MODAL FUNCTIONS ======================
+    function showCreateRoomModal() {
+      document.getElementById('create-room-modal').style.display = 'flex';
+    }
+
+    function showJoinCodeModal() {
+      document.getElementById('join-code-modal').style.display = 'flex';
+      document.getElementById('join-code').focus();
+    }
+
+    function showRoomListModal() {
+      document.getElementById('browse-rooms-modal').style.display = 'flex';
+      loadRoomList();
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    // Update max players display
+    document.getElementById('max-players').addEventListener('input', function() {
+      document.getElementById('max-players-val').textContent = this.value;
+    });
+
+    // ====================== ROOM ACTIONS ======================
+    async function createRoom() {
+      const name = document.getElementById('room-name').value.trim() || `Room_${Math.floor(1000 + Math.random() * 9000)}`;
+      const maxPlayers = parseInt(document.getElementById('max-players').value);
+      const password = document.getElementById('room-password').value.trim();
+
+      // Generate Room ID
+      const roomId = name.toLowerCase().replace(/[^a-z0-9]/g, '') || Math.floor(10000 + Math.random() * 90000).toString();
+
+      const roomData = {
+        metadata: {
+          id: roomId,
+          name: name,
+          maxPlayers: maxPlayers,
+          password: password ? btoa(password) : null,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          createdBy: currentPlayerId,
+          gameStarted: false,
+          isActive: true
+        },
+        players: {},
+        food: {},
+        powerups: {},
+        leaderboard: {}
+      };
+
+      try {
+        await firebase.database().ref(`rooms/${roomId}`).set(roomData);
+        closeModal('create-room-modal');
+        joinRoom(roomId, password);
+      } catch (error) {
+        alert("Error creating room: " + error.message);
+      }
+    }
+
+    async function joinByCode() {
+      const code = document.getElementById('join-code').value.trim();
+      if (!code) return;
+      
+      const password = prompt("Enter password if required (or leave empty):");
+      joinRoom(code, password);
+    }
+
+    async function joinRoom(roomId, password = null) {
+      const roomRef = firebase.database().ref(`rooms/${roomId}`);
+      const snapshot = await roomRef.once('value');
+      const room = snapshot.val();
+
+      if (!room) {
+        alert("Room not found!");
+        return;
+      }
+
+      const meta = room.metadata;
+      const currentPlayers = Object.keys(room.players || {}).length;
+
+      // Password Check
+      if (meta.password) {
+        if (!password || btoa(password) !== meta.password) {
+          alert("Incorrect password!");
+          return;
+        }
+      }
+
+      // Full Check
+      if (currentPlayers >= meta.maxPlayers) {
+        alert("Room is full!");
+        return;
+      }
+
+      // Join
+      await roomRef.child(`players/${currentPlayerId}`).set({
+        x: 500 + Math.random() * 1000,
+        y: 500 + Math.random() * 1000,
+        angle: Math.random() * Math.PI * 2,
+        length: 120,
+        color: selectedSkinColor, // Use selected skin
+        name: "Player_" + currentPlayerId.substring(0, 4),
+        isBot: false,
+        lastUpdated: firebase.database.ServerValue.TIMESTAMP
+      });
+
+      // Redirect to Lobby
+      window.location.href = `lobby.html?room=${roomId}`;
+    }
+
+    async function quickPlay() {
+      // Find a public room with space or create one
+      const roomsRef = firebase.database().ref('rooms');
+      const snapshot = await roomsRef.once('value');
+      const rooms = snapshot.val();
+
+      let targetRoom = null;
+
+      if (rooms) {
+        for (const id in rooms) {
+          const room = rooms[id];
+          const meta = room.metadata;
+          const playerCount = Object.keys(room.players || {}).length;
+
+          if (!meta.password && playerCount < meta.maxPlayers && !meta.gameStarted) {
+            targetRoom = id;
+            break;
+          }
+        }
+      }
+
+      if (targetRoom) {
+        joinRoom(targetRoom);
+      } else {
+        // Create a new room for quick play
+        const roomId = "Quick_" + Math.floor(1000 + Math.random() * 9000);
+        const roomData = {
+          metadata: {
+            id: roomId,
+            name: "Quick Play",
+            maxPlayers: 20,
+            password: null,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            createdBy: currentPlayerId,
+            gameStarted: false,
+            isActive: true
+          },
+          players: {},
+          food: {},
+          powerups: {},
+          leaderboard: {}
+        };
+
+        await firebase.database().ref(`rooms/${roomId}`).set(roomData);
+        joinRoom(roomId);
+      }
+    }
+
+    function loadRoomList() {
+      const container = document.getElementById('room-list-container');
+      container.innerHTML = '<div class="loader"></div>';
+
+      firebase.database().ref('rooms').on('value', (snapshot) => {
+        const rooms = snapshot.val();
+        container.innerHTML = '';
+
+        if (!rooms) {
+          container.innerHTML = '<p style="color:#666; text-align:center;">No active rooms.</p>';
+          return;
+        }
+
+        let count = 0;
+        for (const id in rooms) {
+          const room = rooms[id];
+          const meta = room.metadata;
+          const playerCount = Object.keys(room.players || {}).length;
+
+          if (meta.isActive && !meta.gameStarted) {
+            count++;
+            const div = document.createElement('div');
+            div.className = 'room-item';
+            div.innerHTML = `
+              <div>
+                <strong>${meta.name}</strong><br>
+                <small>${playerCount} / ${meta.maxPlayers} players</small>
+              </div>
+              <button onclick="joinRoom('${id}')">Join</button>
+            `;
+            container.appendChild(div);
+          }
+        }
+
+        if (count === 0) {
+          container.innerHTML = '<p style="color:#666; text-align:center;">No active rooms.</p>';
+        }
+      });
+    }
+
+    function getRandomColor() {
+      const colors = ["#00ffff", "#ff00ff", "#ffff00", "#00ff88", "#ff8800", "#ff0088", "#88ff00"];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    // Make functions global for HTML onclick
+    window.quickPlay = quickPlay;
+    window.showCreateRoomModal = showCreateRoomModal;
+    window.showJoinCodeModal = showJoinCodeModal;
+    window.showRoomListModal = showRoomListModal;
+    window.closeModal = closeModal;
+    window.createRoom = createRoom;
+    window.joinByCode = joinByCode;
+    window.joinRoom = joinRoom;
+  </script>
+</body>
+</html>

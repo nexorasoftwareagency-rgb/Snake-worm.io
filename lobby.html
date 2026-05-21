@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>WormSlither Arena - Lobby</title>
+  <!-- Firebase Compat Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  
+  <style>
+    /* Worms Zone Inspired Styles */
+    body {
+      margin: 0; padding: 0;
+      background: linear-gradient(135deg, #1e90ff, #00bfff); /* Bright Blue Gradient */
+      background-image: url('data:image/svg+xml;utf8,<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="2" fill="%23ffffff" opacity="0.1"/></svg>'); /* Subtle Dot Pattern */
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .lobby-container {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      padding: 30px;
+      border-radius: 25px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      width: 90%;
+      max-width: 500px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+
+    h1 {
+      font-size: 36px;
+      margin: 0 0 10px;
+      color: #ffd700; /* Gold */
+      text-shadow: 2px 2px 0px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+
+    .room-code-box {
+      background: #fff;
+      color: #333;
+      padding: 10px 20px;
+      border-radius: 15px;
+      display: inline-block;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 0 #ccc;
+    }
+
+    .room-code {
+      font-size: 28px;
+      font-weight: bold;
+      color: #ff4500; /* Orange Red */
+      letter-spacing: 3px;
+    }
+
+    .player-count {
+      font-size: 18px;
+      margin-top: 5px;
+      color: #333;
+      font-weight: bold;
+    }
+
+    .player-list {
+      max-height: 250px;
+      overflow-y: auto;
+      text-align: left;
+      margin: 20px 0;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 15px;
+    }
+
+    .player-item {
+      padding: 12px 15px;
+      background: rgba(255, 255, 255, 0.9);
+      margin: 8px 0;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+    }
+
+    .player-item:hover {
+      transform: scale(1.02);
+    }
+
+    .bot {
+      opacity: 0.8;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .btn-start {
+      background: linear-gradient(to bottom, #7cfc00, #32cd32); /* Lime Green */
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      padding: 15px 40px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 6px 0 #228b22, 0 10px 10px rgba(0,0,0,0.3);
+      transition: all 0.1s;
+      text-transform: uppercase;
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    .btn-start:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #228b22, 0 4px 4px rgba(0,0,0,0.3);
+    }
+
+    .btn-leave {
+      background: linear-gradient(to bottom, #ff6347, #ff4500); /* Tomato */
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 6px 0 #b22222, 0 10px 10px rgba(0,0,0,0.3);
+      transition: all 0.1s;
+      margin-top: 15px;
+      width: 100%;
+    }
+
+    .btn-leave:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #b22222, 0 4px 4px rgba(0,0,0,0.3);
+    }
+
+    .status {
+      margin: 15px 0;
+      font-size: 16px;
+      color: #fff;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.1);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.5);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="lobby-container">
+    <h1>WORMSLITHER</h1>
+    
+    <div class="room-code-box">
+      <div class="room-code" id="room-code">LOADING...</div>
+      <div class="player-count" id="player-count">0 / 20 players</div>
+    </div>
+
+    <h3 style="margin: 10px 0; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">Players in Room</h3>
+    <div class="player-list" id="player-list">
+      <!-- Players will be loaded here -->
+      <div style="text-align:center; padding: 20px;">Loading players...</div>
+    </div>
+
+    <div class="status" id="status">
+      Waiting for players... <br>
+      <small>Bots will fill empty slots automatically.</small>
+    </div>
+
+    <button class="btn-start" onclick="startGame()" id="start-btn" style="display:none;">
+      To Battle! 🚀
+    </button>
+    
+    <button class="btn-leave" onclick="leaveRoom()">Leave Room</button>
+  </div>
+
+  <script>
+    // ====================== FIREBASE CONFIG ======================
+    // REPLACE WITH YOUR ACTUAL FIREBASE CONFIG
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "SENDER_ID",
+      appId: "APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    // Get Room ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomId = urlParams.get('room');
+    let playerId = localStorage.getItem('wormPlayerId') || "player_" + Math.random().toString(36).substring(2, 11);
+    localStorage.setItem('wormPlayerId', playerId);
+
+    let isHost = false;
+
+    if (!roomId) {
+      alert("No room code found! Redirecting to menu...");
+      window.location.href = "index.html";
+    }
+
+    // ====================== LOBBY LOGIC ======================
+    function loadLobby() {
+      const roomRef = firebase.database().ref(`rooms/${roomId}`);
+
+      roomRef.on('value', (snapshot) => {
+        const room = snapshot.val();
+        if (!room) {
+          alert("Room no longer exists!");
+          window.location.href = "index.html";
+          return;
+        }
+
+        const meta = room.metadata;
+        const players = room.players || {};
+        const playerArray = Object.values(players);
+
+        // Update Header
+        document.getElementById('room-code').textContent = roomId.toUpperCase();
+        document.getElementById('player-count').textContent = 
+          `${playerArray.length} / ${meta.maxPlayers} players`;
+
+        // Render Player List
+        renderPlayerList(players);
+
+        // Check if Host
+        isHost = (meta.createdBy === playerId);
+        
+        // Show Start button only to host
+        const startBtn = document.getElementById('start-btn');
+        if (isHost) {
+          startBtn.style.display = 'inline-block';
+          startBtn.textContent = "To Battle! ";
+        } else {
+          startBtn.style.display = 'none';
+          document.getElementById('status').innerHTML = "Waiting for host to start...";
+        }
+
+        // Auto-fill bots if needed (Host only or Server-side logic preferred)
+        // For simplicity, we'll let the host's client trigger bot filling if they are the first to join
+        if (isHost && playerArray.length < meta.maxPlayers) {
+           // In a real app, use Cloud Functions. Here, we simulate it.
+           // We'll handle bot spawning in the game loop or via a separate trigger
+           // to keep lobby light.
+        }
+      });
+    }
+
+    function renderPlayerList(players) {
+      const container = document.getElementById('player-list');
+      container.innerHTML = "";
+
+      if (Object.keys(players).length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 20px;">Waiting for players...</div>';
+        return;
+      }
+
+      Object.values(players).forEach(p => {
+        const div = document.createElement('div');
+        div.className = `player-item ${p.isBot ? 'bot' : ''}`;
+        
+        // Random avatar color if not present
+        const avatarColor = p.color || '#' + Math.floor(Math.random()*16777215).toString(16);
+        
+        div.innerHTML = `
+          <div class="avatar" style="background:${avatarColor}; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
+            ${p.name ? p.name.charAt(0).toUpperCase() : '?'}
+          </div>
+          <div style="flex:1;">
+            <strong>${p.name || 'Unknown'}</strong>
+            <div style="font-size:12px; color:#666;">
+              ${p.isBot ? '🤖 Bot' : '👤 Player'} 
+              • Length: ${Math.floor(p.length || 100)}
+            </div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function startGame() {
+      if (!isHost) return;
+
+      const btn = document.getElementById('start-btn');
+      btn.disabled = true;
+      btn.textContent = "Starting...";
+
+      // Set gameStarted flag in Firebase
+      await firebase.database().ref(`rooms/${roomId}/metadata`).update({
+        gameStarted: true,
+        startedAt: firebase.database.ServerValue.TIMESTAMP
+      });
+      
+      // Redirect to game
+      window.location.href = `game.html?room=${roomId}`;
+    }
+
+    function leaveRoom() {
+      if (confirm("Are you sure you want to leave?")) {
+        // Remove player from room
+        firebase.database().ref(`rooms/${roomId}/players/${playerId}`).remove();
+        window.location.href = "index.html";
+      }
+    }
+
+    // Initialize
+    window.onload = () => {
+      loadLobby();
+    };
+
+    // Handle page unload cleanup
+    window.onbeforeunload = () => {
+      firebase.database().ref(`rooms/${roomId}/players/${playerId}`).remove();
+    };
+  </script>
+</body>
+</html>
