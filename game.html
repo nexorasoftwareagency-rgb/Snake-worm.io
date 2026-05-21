@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>WormSlither Arena - Game</title>
+  <title>WormSlither Arena - Phaser WebGL</title>
   
-  <!-- Firebase Compat Scripts -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 
-  <!-- Game Logic Scripts -->
+  <!-- Phaser 3 (WebGL) -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+
+  <!-- Game Logic -->
   <script src="js/AudioSystem.js"></script>
   <script src="js/ParticleSystem.js"></script>
   <script src="js/FoodSystem.js"></script>
@@ -20,282 +23,86 @@
   <script src="js/GameLoop.js"></script>
 
   <style>
-    /* Reset & Base */
-    body, html {
-      margin: 0; padding: 0; width: 100%; height: 100%;
-      overflow: hidden; background: #0a001f;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      touch-action: none; /* Prevent default touch actions */
-    }
-
-    /* Canvas */
-    #game-canvas {
-      display: block;
-      width: 100%; height: 100%;
-    }
-
+    body { margin: 0; padding: 0; overflow: hidden; background: #0a001f; }
+    canvas { display: block; }
+    
     /* HUD Overlay */
     #hud {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      pointer-events: none; /* Let clicks pass through to canvas */
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; font-family: 'Segoe UI', sans-serif;
     }
-
-    /* Top Left: Score & Room */
-    .hud-top-left {
-      position: absolute;
-      top: 20px; left: 20px;
-      color: white;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    }
-
-    .score-display {
-      font-size: 28px;
-      font-weight: bold;
-      color: #ffd700;
-    }
-
-    .room-info {
-      font-size: 14px;
-      opacity: 0.8;
-      margin-top: 5px;
-    }
-
-    /* Top Right: Leaderboard */
+    .hud-top-left { position: absolute; top: 20px; left: 20px; color: white; text-shadow: 2px 2px 4px #000; }
+    .score-display { font-size: 28px; font-weight: bold; color: #ffd700; }
+    .room-info { font-size: 14px; opacity: 0.8; }
+    
     .leaderboard {
-      position: absolute;
-      top: 20px; right: 20px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 10px 15px;
-      border-radius: 12px;
-      color: white;
-      min-width: 150px;
-      backdrop-filter: blur(5px);
+      position: absolute; top: 20px; right: 20px;
+      background: rgba(0,0,0,0.5); padding: 10px 15px; border-radius: 12px;
+      color: white; min-width: 150px; backdrop-filter: blur(5px);
     }
+    .leaderboard h3 { margin: 0 0 8px; font-size: 16px; color: #00ffff; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; }
+    .leaderboard-list { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+    .leaderboard-list li { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .leaderboard-list li.me { color: #ffd700; font-weight: bold; }
 
-    .leaderboard h3 {
-      margin: 0 0 8px 0;
-      font-size: 16px;
-      color: #00ffff;
-      text-align: center;
-      border-bottom: 1px solid rgba(255,255,255,0.2);
-      padding-bottom: 5px;
-    }
-
-    .leaderboard-list {
-      list-style: none;
-      padding: 0; margin: 0;
-      font-size: 14px;
-    }
-
-    .leaderboard-list li {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 4px;
-    }
-
-    .leaderboard-list li.me {
-      color: #ffd700;
-      font-weight: bold;
-    }
-
-    /* Bottom Right: Mobile Boost Button */
     #boost-btn {
-      position: absolute;
-      bottom: 30px; right: 30px;
-      width: 80px; height: 80px;
-      border-radius: 50%;
+      position: absolute; bottom: 30px; right: 30px;
+      width: 80px; height: 80px; border-radius: 50%;
       background: radial-gradient(circle, #ff4500, #ff0000);
-      border: 4px solid #fff;
-      box-shadow: 0 0 15px rgba(255, 69, 0, 0.6);
-      color: white;
-      font-weight: bold;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: auto;
-      cursor: pointer;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      transition: transform 0.1s;
+      border: 4px solid #fff; box-shadow: 0 0 15px rgba(255,69,0,0.6);
+      color: white; font-weight: bold; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: auto; cursor: pointer; user-select: none;
     }
+    #boost-btn:active { transform: scale(0.9); }
 
-    #boost-btn:active {
-      transform: scale(0.9);
-      background: radial-gradient(circle, #ff0000, #cc0000);
-    }
-
-    /* Bottom Left: Mute Button */
     #mute-btn {
-      position: absolute;
-      bottom: 30px; left: 30px;
-      width: 50px; height: 50px;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.5);
-      border: 2px solid #fff;
-      color: white;
-      font-size: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: auto;
-      cursor: pointer;
-      user-select: none;
-      backdrop-filter: blur(5px);
+      position: absolute; bottom: 30px; left: 30px;
+      width: 50px; height: 50px; border-radius: 50%;
+      background: rgba(0,0,0,0.5); border: 2px solid #fff;
+      color: white; font-size: 24px; display: flex; align-items: center; justify-content: center;
+      pointer-events: auto; cursor: pointer; backdrop-filter: blur(5px);
     }
 
-    /* Minimap */
-    #minimap-container {
-      position: absolute;
-      bottom: 20px; right: 20px;
-      width: 150px; height: 150px;
-      border: 3px solid rgba(255, 255, 255, 0.5);
-      border-radius: 10px;
-      background: rgba(0, 0, 0, 0.6);
-      overflow: hidden;
-      pointer-events: none;
-    }
-
-    #minimap {
-      width: 100%; height: 100%;
-    }
-
-    /* Death Screen */
-    #death-screen {
-      display: none;
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      pointer-events: auto;
-      z-index: 100;
-    }
-
-    .death-content {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      padding: 40px;
-      border-radius: 25px;
-      border: 3px solid #ff4500;
-      text-align: center;
-      color: white;
-    }
-
-    .death-content h1 {
-      color: #ff4500;
-      font-size: 48px;
-      margin: 0 0 10px;
-      text-shadow: 2px 2px 0 #000;
-    }
-
-    .death-stats {
-      font-size: 20px;
-      margin-bottom: 20px;
-    }
-
-    .btn-restart {
-      background: linear-gradient(to bottom, #7cfc00, #32cd32);
-      color: white;
-      font-size: 24px;
-      font-weight: bold;
-      padding: 15px 40px;
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      box-shadow: 0 6px 0 #228b22;
-      transition: all 0.1s;
-    }
-
-    .btn-restart:active {
-      transform: translateY(4px);
-      box-shadow: 0 2px 0 #228b22;
-    }
-
-    /* Loading Screen */
     #loading-screen {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: #0a001f;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      color: white;
-      z-index: 200;
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: #0a001f; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; color: white; z-index: 200;
     }
-
     .loader {
-      border: 6px solid #333;
-      border-top: 6px solid #00ffff;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 20px;
+      border: 6px solid #333; border-top: 6px solid #00ffff;
+      border-radius: 50%; width: 50px; height: 50px;
+      animation: spin 1s linear infinite; margin-bottom: 20px;
     }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
-  <!-- Loading Screen -->
   <div id="loading-screen">
     <div class="loader"></div>
-    <div>Loading Game...</div>
+    <div>Loading WebGL Engine...</div>
   </div>
 
-  <!-- Game Canvas -->
-  <canvas id="game-canvas"></canvas>
+  <!-- Phaser Canvas will be injected here automatically -->
 
-  <!-- HUD Overlay -->
   <div id="hud">
-    <!-- Top Left -->
     <div class="hud-top-left">
       <div class="score-display">Score: <span id="score-val">0</span></div>
       <div class="room-info">Room: <span id="room-id-display">...</span></div>
     </div>
 
-    <!-- Top Right: Leaderboard -->
     <div class="leaderboard">
       <h3>🏆 Leaderboard</h3>
-      <ul class="leaderboard-list" id="leaderboard-list">
-        <li>Loading...</li>
-      </ul>
+      <ul class="leaderboard-list" id="leaderboard-list"><li>Loading...</li></ul>
     </div>
 
-    <!-- Bottom Right: Boost Button (Mobile) -->
     <div id="boost-btn">BOOST</div>
-
-    <!-- Bottom Left: Mute Button -->
-    <div id="mute-btn" onclick="toggleMute()"></div>
-
-    <!-- Minimap -->
-    <div id="minimap-container">
-      <canvas id="minimap"></canvas>
-    </div>
-
-    <!-- Death Screen -->
-    <div id="death-screen">
-      <div class="death-content">
-        <h1>GAME OVER</h1>
-        <div class="death-stats">
-          Final Score: <span id="final-score">0</span><br>
-          Length: <span id="final-length">0</span>
-        </div>
-        <button class="btn-restart" onclick="respawnPlayer()">Play Again</button>
-      </div>
-    </div>
+    <div id="mute-btn" onclick="toggleMute()">🔊</div>
   </div>
 
   <script>
-    // ====================== FIREBASE CONFIG ======================
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyBMSV8rITmrGZjLlY5dREwzqxvatAxscsY",
       authDomain: "snake-worm-io-680e9.firebaseapp.com",
@@ -308,17 +115,12 @@
     };
     firebase.initializeApp(firebaseConfig);
 
-    // ====================== AUDIO & MUTE TOGGLE ======================
     function toggleMute() {
-        AudioSystem.init(); // Ensure context is created
+        AudioSystem.init();
         const isMuted = AudioSystem.toggleMute();
         document.getElementById('mute-btn').textContent = isMuted ? '🔇' : '🔊';
     }
-
-    // Initialize Audio on first interaction
-    document.addEventListener('click', () => {
-        AudioSystem.init();
-    }, { once: true });
+    document.addEventListener('click', () => AudioSystem.init(), { once: true });
   </script>
 </body>
 </html>
