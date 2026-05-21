@@ -14,7 +14,10 @@ class MainScene extends Phaser.Scene {
         this.gridGraphics = this.add.graphics();
         this.drawGrid();
 
-        // 3. Input
+        // 3. Minimap Setup
+        this.setupMinimap();
+
+        // 4. Input
         this.input.on('pointermove', (pointer) => {
             this.mouseWorldX = pointer.worldX;
             this.mouseWorldY = pointer.worldY;
@@ -27,7 +30,7 @@ class MainScene extends Phaser.Scene {
         boostBtn.addEventListener('mousedown', () => this.isBoosting = true);
         boostBtn.addEventListener('mouseup', () => this.isBoosting = false);
 
-        // 4. Game State
+        // 5. Game State
         this.player = null;
         this.otherPlayers = {};
         this.bots = {};
@@ -37,7 +40,7 @@ class MainScene extends Phaser.Scene {
         this.mouseWorldX = this.ARENA_SIZE / 2;
         this.mouseWorldY = this.ARENA_SIZE / 2;
 
-        // 5. Init Systems
+        // 6. Init Systems
         this.initGame();
     }
 
@@ -68,6 +71,9 @@ class MainScene extends Phaser.Scene {
 
         // Update UI
         document.getElementById('score-val').textContent = Math.floor(this.player.length * 10);
+
+        // Draw Minimap
+        this.drawMinimap();
     }
 
     initGame() {
@@ -152,6 +158,93 @@ class MainScene extends Phaser.Scene {
             this.gridGraphics.lineTo(this.ARENA_SIZE, y);
         }
         this.gridGraphics.strokePath();
+    }
+
+    setupMinimap() {
+        this.minimapSize = 150;
+        this.minimapPadding = 20;
+        // Position: Bottom Right
+        this.minimapX = this.scale.width - this.minimapSize - this.minimapPadding;
+        this.minimapY = this.scale.height - this.minimapSize - this.minimapPadding;
+        
+        this.minimapGraphics = this.add.graphics().setDepth(100);
+        
+        // Background
+        this.minimapGraphics.fillStyle(0x0a001f, 0.8);
+        this.minimapGraphics.fillRect(this.minimapX, this.minimapY, this.minimapSize, this.minimapSize);
+        
+        // Border
+        this.minimapGraphics.lineStyle(2, 0xffffff, 0.5);
+        this.minimapGraphics.strokeRect(this.minimapX, this.minimapY, this.minimapSize, this.minimapSize);
+    }
+
+    drawMinimap() {
+        if (!this.minimapGraphics) return;
+
+        // Clear dynamic content (keep background/border if needed, but easier to redraw all)
+        // Actually, let's just clear the inner area to save performance
+        this.minimapGraphics.clear();
+        
+        // Redraw Background & Border
+        this.minimapGraphics.fillStyle(0x0a001f, 0.8);
+        this.minimapGraphics.fillRect(this.minimapX, this.minimapY, this.minimapSize, this.minimapSize);
+        this.minimapGraphics.lineStyle(2, 0xffffff, 0.5);
+        this.minimapGraphics.strokeRect(this.minimapX, this.minimapY, this.minimapSize, this.minimapSize);
+
+        const scale = this.minimapSize / this.ARENA_SIZE;
+
+        // Draw Food (Limit to 50 for performance)
+        const foodEntries = Object.values(this.currentFoods);
+        const limit = 50;
+        for (let i = 0; i < Math.min(foodEntries.length, limit); i++) {
+            const f = foodEntries[i];
+            this.minimapGraphics.fillStyle(0xffff00, 0.6);
+            this.minimapGraphics.fillRect(
+                this.minimapX + f.x * scale, 
+                this.minimapY + f.y * scale, 
+                2, 2
+            );
+        }
+
+        // Draw Other Players
+        Object.values(this.otherPlayers).forEach(p => {
+            this.minimapGraphics.fillStyle(Phaser.Display.Color.HexStringToColor(p.color || '#00ffff').color, 1);
+            this.minimapGraphics.fillCircle(
+                this.minimapX + p.x * scale, 
+                this.minimapY + p.y * scale, 
+                3
+            );
+        });
+
+        // Draw Bots
+        Object.values(this.bots).forEach(b => {
+            this.minimapGraphics.fillStyle(Phaser.Display.Color.HexStringToColor(b.color || '#ff00ff').color, 1);
+            this.minimapGraphics.fillCircle(
+                this.minimapX + b.head.x * scale, 
+                this.minimapY + b.head.y * scale, 
+                2
+            );
+        });
+
+        // Draw Player
+        if (this.player && this.player.isAlive) {
+            this.minimapGraphics.fillStyle(0xffffff, 1);
+            this.minimapGraphics.fillCircle(
+                this.minimapX + this.player.head.x * scale, 
+                this.minimapY + this.player.head.y * scale, 
+                4
+            );
+            
+            // Viewport Rectangle
+            const cam = this.cameras.main;
+            const viewX = this.minimapX + (cam.scrollX / this.ARENA_SIZE) * this.minimapSize;
+            const viewY = this.minimapY + (cam.scrollY / this.ARENA_SIZE) * this.minimapSize;
+            const viewW = (cam.width / cam.zoom / this.ARENA_SIZE) * this.minimapSize;
+            const viewH = (cam.height / cam.zoom / this.ARENA_SIZE) * this.minimapSize;
+
+            this.minimapGraphics.lineStyle(1, 0xffffff, 0.8);
+            this.minimapGraphics.strokeRect(viewX, viewY, viewW, viewH);
+        }
     }
 
     updateLeaderboard(playersData) {
