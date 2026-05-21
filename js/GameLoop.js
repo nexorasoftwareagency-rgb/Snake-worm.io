@@ -103,6 +103,16 @@ function initGame() {
             }
         });
 
+        // Auto-Fill Bots if needed (Only if host or if bots are missing)
+        const realPlayerCount = Object.values(data).filter(p => !p.isBot).length;
+        const maxPlayers = 20; // Default max, ideally fetch from metadata
+        
+        // Simple logic: If total players (real + bots) < 10, spawn more bots
+        // We do this with a small delay to avoid race conditions between clients
+        if (Object.keys(bots).length < 5 && realPlayerCount > 0) {
+             setTimeout(() => autoFillBots(roomId, maxPlayers), 2000);
+        }
+
         updateLeaderboard(data);
     });
 
@@ -368,6 +378,37 @@ function updateLeaderboard(playersData) {
 
 // Initialize when DOM is ready
 window.addEventListener('DOMContentLoaded', initGame);
+
+// ====================== AUTO BOT FILLING ======================
+async function autoFillBots(roomId, maxPlayers = 20) {
+    const playersRef = firebase.database().ref(`rooms/${roomId}/players`);
+    const snapshot = await playersRef.once('value');
+    const data = snapshot.val() || {};
+    
+    const currentCount = Object.keys(data).length;
+    const needed = maxPlayers - currentCount;
+
+    if (needed <= 0) return;
+
+    console.log(`Spawning ${needed} bots for room ${roomId}`);
+
+    for (let i = 0; i < needed; i++) {
+        const botId = "bot_" + Math.random().toString(36).substring(2, 10);
+        const botData = {
+            x: ARENA_SIZE / 2 + (Math.random() - 0.5) * 1000,
+            y: ARENA_SIZE / 2 + (Math.random() - 0.5) * 1000,
+            angle: Math.random() * Math.PI * 2,
+            length: 100 + Math.random() * 50,
+            color: ["#00ffff", "#ff00ff", "#ffff00", "#00ff88"][Math.floor(Math.random() * 4)],
+            name: "Bot-" + Math.floor(Math.random() * 999),
+            isBot: true,
+            isAlive: true,
+            lastUpdated: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        await playersRef.child(botId).set(botData);
+    }
+}
 
 // ====================== MINIMAP ======================
 function drawMinimap() {

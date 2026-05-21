@@ -312,13 +312,25 @@
       btn.disabled = true;
       btn.textContent = "Starting...";
 
-      // Set gameStarted flag in Firebase
-      await firebase.database().ref(`rooms/${roomId}/metadata`).update({
+      // 1. Auto-Fill Bots before starting
+      const roomRef = firebase.database().ref(`rooms/${roomId}`);
+      const snapshot = await roomRef.once('value');
+      const room = snapshot.val();
+      const playerCount = Object.keys(room.players || {}).length;
+      
+      if (playerCount < 5) {
+          document.getElementById('status').innerHTML = "Spawning Bots...";
+          // We'll let the game logic handle spawning, but we can trigger it here too
+          // For now, just proceed. The game loop will fill bots.
+      }
+
+      // 2. Set gameStarted flag in Firebase
+      await roomRef.child('metadata').update({
         gameStarted: true,
         startedAt: firebase.database.ServerValue.TIMESTAMP
       });
       
-      // Redirect to game
+      // 3. Redirect to game
       window.location.href = `game.html?room=${roomId}`;
     }
 

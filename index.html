@@ -375,6 +375,10 @@
 
     renderSkins();
 
+    // Initialize System Rooms and Cleanup on Load
+    ensurePersistentRooms();
+    setInterval(cleanupOldRooms, 60000); // Run cleanup every minute
+
     // ====================== MODAL FUNCTIONS ======================
     function showCreateRoomModal() {
       document.getElementById('create-room-modal').style.display = 'flex';
@@ -400,6 +404,73 @@
     });
 
     // ====================== ROOM ACTIONS ======================
+    
+    // 1. Ensure Persistent "Always Running" Rooms
+    async function ensurePersistentRooms() {
+        const defaultRooms = [
+            { id: "arena_1", name: "🔥 Hot Arena 1", max: 20 },
+            { id: "arena_2", name: "⚡ Speed Arena 2", max: 20 },
+            { id: "arena_3", name: "🐍 Snake Pit 3", max: 30 }
+        ];
+
+        for (const room of defaultRooms) {
+            const ref = firebase.database().ref(`rooms/${room.id}`);
+            const snapshot = await ref.once('value');
+            
+            if (!snapshot.exists()) {
+                // Create room if it doesn't exist
+                await ref.set({
+                    metadata: {
+                        id: room.id,
+                        name: room.name,
+                        maxPlayers: room.max,
+                        password: null,
+                        createdAt: firebase.database.ServerValue.TIMESTAMP,
+                        createdBy: "system",
+                        gameStarted: false,
+                        isActive: true,
+                        isPersistent: true // Flag to prevent cleanup
+                    },
+                    players: {},
+                    food: {},
+                    powerups: {},
+                    leaderboard: {}
+                });
+                console.log(`Created persistent room: ${room.id}`);
+            }
+        }
+    }
+
+    // 2. Cleanup Empty/Abandoned Rooms
+    async function cleanupOldRooms() {
+        const roomsRef = firebase.database().ref('rooms');
+        const snapshot = await roomsRef.once('value');
+        const rooms = snapshot.val();
+        const now = Date.now();
+
+        if (!rooms) return;
+
+        for (const id in rooms) {
+            const room = rooms[id];
+            const meta = room.metadata;
+
+            // Skip persistent rooms
+            if (meta.isPersistent) continue;
+
+            // Check if empty
+            const playerCount = Object.keys(room.players || {}).length;
+            if (playerCount === 0) {
+                // Check age (delete if older than 10 minutes)
+                const created = meta.createdAt || now;
+                const age = now - created;
+                if (age > 10 * 60 * 1000) { // 10 minutes
+                    await roomsRef.child(id).remove();
+                    console.log(`Cleaned up empty room: ${id}`);
+                }
+            }
+        }
+    }
+
     async function createRoom() {
       const name = document.getElementById('room-name').value.trim() || `Room_${Math.floor(1000 + Math.random() * 9000)}`;
       const maxPlayers = parseInt(document.getElementById('max-players').value);
@@ -494,15 +565,30 @@
       let targetRoom = null;
 
       if (rooms) {
+        // Priority 1: Persistent Rooms
         for (const id in rooms) {
           const room = rooms[id];
           const meta = room.metadata;
           const playerCount = Object.keys(room.players || {}).length;
 
-          if (!meta.password && playerCount < meta.maxPlayers && !meta.gameStarted) {
+          if (meta.isPersistent && !meta.password && playerCount < meta.maxPlayers && !meta.gameStarted) {
             targetRoom = id;
             break;
           }
+        }
+
+        // Priority 2: Any other public room
+        if (!targetRoom) {
+            for (const id in rooms) {
+            const room = rooms[id];
+            const meta = room.metadata;
+            const playerCount = Object.keys(room.players || {}).length;
+
+            if (!meta.isPersistent && !meta.password && playerCount < meta.maxPlayers && !meta.gameStarted) {
+                targetRoom = id;
+                break;
+            }
+            }
         }
       }
 
@@ -547,8 +633,16 @@
         }
 
         let count = 0;
-        for (const id in rooms) {
-          const room = rooms[id];
+        // Sort rooms: Persistent first, then by player count
+        const roomArray = Object.entries(rooms).sort((a, b) => {
+            const metaA = a[1].metadata;
+            const metaB = b[1].metadata;
+            if (metaA.isPersistent && !metaB.isPersistent) return -1;
+            if (!metaA.isPersistent && metaB.isPersistent) return 1;
+            return 0;
+        });
+
+        for (const [id, room] of roomArray) {
           const meta = room.metadata;
           const playerCount = Object.keys(room.players || {}).length;
 
@@ -556,10 +650,14 @@
             count++;
             const div = document.createElement('div');
             div.className = 'room-item';
+            
+            // Highlight persistent rooms
+            const isPersistent = meta.isPersistent ? 'style="border-left: 4px solid #ffd700;"' : '';
+            
             div.innerHTML = `
-              <div>
+              <div ${isPersistent}>
                 <strong>${meta.name}</strong><br>
-                <small>${playerCount} / ${meta.maxPlayers} players</small>
+                <small>${playerCount} / ${meta.maxPlayers} players ${meta.isPersistent ? '• Always Open' : ''}</small>
               </div>
               <button onclick="joinRoom('${id}')">Join</button>
             `;
