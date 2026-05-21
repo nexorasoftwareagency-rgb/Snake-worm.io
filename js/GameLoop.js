@@ -261,13 +261,28 @@ class MainScene extends Phaser.Scene {
     }
 
     render() {
-        // 1. Render Food (Glowing Orbs)
+        const cam = this.cameras.main;
+        
+        // Calculate visible world bounds (Camera Viewport)
+        const viewX = cam.scrollX;
+        const viewY = cam.scrollY;
+        const viewW = cam.width / cam.zoom;
+        const viewH = cam.height / cam.zoom;
+        
+        // Buffer: Render slightly outside the screen to prevent popping when entering view
+        const buffer = 200; 
+
+        // 1. Render Food (Glowing Orbs) - CULLED (Only Visible)
         this.foodGraphics.clear();
         const time = this.time.now;
         Object.values(this.currentFoods).forEach(food => {
-            const colorHex = Phaser.Display.Color.HexStringToColor(food.color || '#ffff00').color;
+            // Optimization: Skip drawing if outside camera view
+            if (food.x < viewX - buffer || food.x > viewX + viewW + buffer ||
+                food.y < viewY - buffer || food.y > viewY + viewH + buffer) {
+                return; 
+            }
             
-            // Pulse effect
+            const colorHex = Phaser.Display.Color.HexStringToColor(food.color || '#ffff00').color;
             const pulse = 1 + Math.sin(time * 0.005 + food.x) * 0.2;
             
             // Glow
@@ -286,22 +301,32 @@ class MainScene extends Phaser.Scene {
         // 2. Render Particles
         this.particleGraphics.clear();
         if (this.player && this.player.isAlive) {
-            this.player.particles.draw(this.particleGraphics, this.cameras.main.scrollX, this.cameras.main.scrollY);
+            this.player.particles.draw(this.particleGraphics, cam.scrollX, cam.scrollY);
         }
         Object.values(this.bots).forEach(bot => {
             if (bot.isAlive) {
-                bot.particles.draw(this.particleGraphics, this.cameras.main.scrollX, this.cameras.main.scrollY);
+                bot.particles.draw(this.particleGraphics, cam.scrollX, cam.scrollY);
             }
         });
 
-        // 3. Render Bots
+        // 3. Render Bots - CULLED (Only Visible)
+        if (!this.wormGraphics) {
+            this.wormGraphics = this.add.graphics().setDepth(10);
+        }
+        this.wormGraphics.clear();
+
         Object.values(this.bots).forEach(bot => {
-            if (bot.isAlive) {
-                this.renderWorm(bot);
+            if (!bot.isAlive) return;
+            
+            // Optimization: Skip drawing bot if head is far outside view
+            if (bot.head.x < viewX - buffer || bot.head.x > viewX + viewW + buffer ||
+                bot.head.y < viewY - buffer || bot.head.y > viewY + viewH + buffer) {
+                return;
             }
+            this.renderWorm(bot);
         });
 
-        // 4. Render Player
+        // 4. Render Player (Always visible)
         if (this.player && this.player.isAlive) {
             this.renderWorm(this.player);
         }
